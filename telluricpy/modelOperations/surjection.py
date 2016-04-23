@@ -1,7 +1,4 @@
-import numpy as np, SimPEG as simpeg, vtk, sys, os, time
-import vtk.util.numpy_support as npsup
 
-import vtkTools
 
 # Collection of functions that surject models (nd-arrays).
 
@@ -12,39 +9,117 @@ def getVolumemetricSurjectMatrix(vtkDataSet1,vtkDataSet2):
     Based on a volumemetric estimation of intersecting cells.
 
     """
+    import numpy as np, SimPEG as simpeg, vtk
+    import vtk.util.numpy_support as npsup
 
+    from telluricpy import vtkTools
     sp = simpeg.sp
 
     # Iniate a sparse matrix
     outMat = sp.csr_matrix((vtkDataSet2.GetNumberOfCells(),vtkDataSet1.GetNumberOfCells()),dtype=float)
 
+    # Check the type of DataSet2
+    if np.all(np.array([vtkDataSet2.GetCellType(i) for i in range(vtkDataSet2.GetNumberOfCells())]) == 11):
+        useBox = True
     # Extract the indieces of the object
     indArr = npsup.vtk_to_numpy(vtkDataSet2.GetCellData().GetArray('id'))
-    # Want to end up with nC1xnC2 sparse matrix
+    # Want to end up with nC2xnC1 sparse matrix
     for iV in indArr:
-        # Get the base cell and calc volume. Triangulate polygon and calc normals
-
-        baseC = vtkTools.dataset.c_ell2vtp(vtkDataSet2,iV)
-        baseVol = vtkTools.polydata.calculateVolume(baseC)
-        print iV, baseVol
-        # Cut the first mesh with base cell
-        clipVols = vtkTools.extration.clipDataSetWithPolygon(vtkDataSet1,baseC,insideOut=True,extractBounds=True)
-        clipInd = npsup.vtk_to_numpy(clipVols.GetCellData().GetArray('id'))
-        print clipInd
-        # Assert if there are no cells cutv
-        assert clipVols.GetNumberOfCells() > 0, 'No cells in the clip, cell id {:d}'.format(iV)
-        # Calculate the volumes of the clipped cells and insert to the matrix
-        for nrCC,iR in enumerate(clipInd):
-            tempCell = vtkTools.dataset.cell2vtp(clipVols,nrCC)
-            tempVol = vtkTools.polydata.calculateCellVolume(tempCell)
-            # Calculate the volume
-            volVal = tempVol/baseVol
-            print iR, tempVol, volVal
-            # Insert the value
-            outMat[iV,iR] = volVal
-
+        # Get the base cell and calc volume.
+        if useBox:
+            volDict = _calculateVolumeByBoxClip(vtkDataSet1,vtkDataSet2,iV)
+        else:
+            volDict = _calculateVolumeByBoolean(vtkDataSet1,vtkDataSet2,iV)
+        # Insert the data
+        for iR in volDict.iterkeys():
+            outMat[iV,iR] = volDict[iR]
     # Return the matrix
     return outMat
+
+def _calculateVolumeByBoxClip(vtkDataSet1,vtkDataSet2,iV):
+    """
+    Function to calculate the volumes of a cell intersecting a mesh.
+
+    Uses a BoxClip filter to calculate the intersection, assumes the cell to
+    be a voxel (=11) and aligned to the grid. This should work well for rectilinear
+    and unstructured grids with all cells as voxels
+
+    """
+    import numpy as np, SimPEG as simpeg, vtk
+    import vtk.util.numpy_support as npsup
+
+    from telluricpy import vtkTools
+    # Make the outDict
+    outDict = {}
+    # Triangulate polygon and calc normals
+    baseC = vtkTools.dataset.cell2vtp(vtkDataSet2,iV)
+    baseVol = vtkTools.polydata.calculateVolume(baseC)
+    # Define the box clip and clip the first mesh with the cell
+    cb = baseC.GetBounds()
+    boxClip = vtk.vtkBoxClipDataSet()
+    boxClip.SetInputData(vtkDataSet1)
+    boxClip.SetBoxClip(cb[0],cb[1],cb[2],cb[3],cb[4],cb[5])
+    boxClip.Update()
+    # Get the intersect grid
+    intCells = boxClip.GetOutput()
+    idList = npsup.vtk_to_numpy(intCells.GetCellData().GetArray('id'))
+    uniIDs = np.unique(idList)
+    # Extract cells from the first mesh that intersect the base cell
+    # Calculate the volumes of the clipped cells and insert to the matrix
+    for nrCC,iR in enumerate(uniIDs):
+        vol =  vtkTools.polydata.calculateVolume(vtkTools.dataset.cell2vtp(intCells,iR))
+        outDict[iR] = float(vol)/float(baseVol)
+    return outDict
+
+def _calculateVolumeByBoolean(vtkDataSet1,vtkDataSet2,iV):
+    """
+    Function to calculate the volumes of a cell intersecting a mesh.
+
+    Uses a boolean polydata filter to calculate the intersection,
+    a general implementation but slow.
+
+    """
+    import numpy as np, SimPEG as simpeg, vtk
+    import vtk.util.numpy_support as npsup
+
+    from telluricpy import vtkTools
+    # Make the outDict
+    outDict = {}
+
+    # Triangulate polygon and calc normals
+    baseC = vtkTools.dataset.cell2vtp(vtkDataSet2,iV)
+    baseVol = vtkTools.polydata.calculateVolume(baseC)
+    # print iV, baseVol
+    # Extract cells from the first mesh that intersect the base cell
+    extractCells = vtkTools.extraction.extractDataSetWithPolygon(vtkDataSet1,baseC,extInside=True,extBoundaryCells=True,extractBounds=True)
+    extInd = npsup.vtk_to_numpy(extractCells.GetCellData().GetArray('id'))
+    # print extInd
+    # Assert if there are no cells cutv
+    assert extractCells.GetNumberOfCells() > 0, 'No cells in the clip, cell id {:d}'.format(iV)
+    # Calculate the volumes of the clipped cells and insert to the matrix
+    for nrCC,iR in enumerate(extInd):
+        tempCell = vtkTools.dataset.cell2vtp(extractCells,iR)
+        # Find the intersection of the 2 cells
+        boolFilt = vtk.vtkBooleanOperationPolyDataFilter()
+        boolFilt.SetTolerance(1e-2)
+        boolFilt.SetInputData(0,tempCell)
+        boolFilt.SetInputData(1,baseC)
+        boolFilt.SetOperationToIntersection()
+        # If they intersect, calculate the volumes
+        if boolFilt.GetOutput().GetNumberOfPoints() > 0:
+            cleanInt = vtkTools.polydata.cleanPolyData(boolFilt.GetOutputPort())
+            del3dFilt = vtk.vtkDelaunay3D()
+            del3dFilt.SetInputData(cleanInt)
+            del3dFilt.Update()
+            # Get the output
+            intC = vtkTools.extraction.vtu2vtp(del3dFilt.GetOutput())
+            intVol = vtkTools.polydata.calculateVolume(tempCell)
+            # Calculate the volume
+            volVal = intVol/baseVol
+            # print iR, intVol, volVal
+            # Insert the value
+            if volVal > 0.0:
+                outDict[iR] = volVal/baseVol
 
 def getIWDSurjectMatrix(vtkDataSet1, vtkDataSet2, leafsize = 10, nrofNear = 9, eps=0, p=1.):
     """
@@ -60,10 +135,9 @@ def getIWDSurjectMatrix(vtkDataSet1, vtkDataSet2, leafsize = 10, nrofNear = 9, e
 
 
     # Import packages
-    import vtk,pdb,numpy as np, os
-    from vtk.util import numpy_support as npsup
-    import scipy.interpolate as sciint
-    import numpy as np
+    import numpy as np, SimPEG as simpeg, vtk
+    import vtk.util.numpy_support as npsup
+
     from scipy.spatial import cKDTree as KDTree
 
 
@@ -73,13 +147,13 @@ def getIWDSurjectMatrix(vtkDataSet1, vtkDataSet2, leafsize = 10, nrofNear = 9, e
     ds1CC = vtk.vtkCellCenters()
     ds1CC.SetInputData(vtkDataSet1)
     ds1CC.Update()
-    ds1CCpts = compGridCC.GetOutput()
+    ds1CCpts = ds1CC.GetOutput()
     ds1Arr = npsup.vtk_to_numpy(ds1CCpts.GetPoints().GetData())
 
     ds2CC = vtk.vtkCellCenters()
     ds2CC.SetInputData(vtkDataSet2)
     ds2CC.Update()
-    ds2CCpts = modelCC.GetOutput()
+    ds2CCpts = ds2CC.GetOutput()
     ds2Arr = npsup.vtk_to_numpy(ds2CCpts.GetPoints().GetData())
 
     # Use a inverse distance weighting of the cell centers
@@ -87,11 +161,11 @@ def getIWDSurjectMatrix(vtkDataSet1, vtkDataSet2, leafsize = 10, nrofNear = 9, e
     # http://stackoverflow.com/questions/3104781/inverse-distance-weighted-idw-interpolation-with-python
 
     # Build the KDtree
-    KDtree = KDTree( ds2Arr, leafsize=10 )
+    KDtree = KDTree( ds1Arr, leafsize = leafsize )
     # Calculate the distances and indexes
-    distances, ix = KDtree.query( ds1Arr, k=nrofNear, eps=eps )
+    distances, ixs = KDtree.query( ds2Arr, k=nrofNear, eps=eps )
     outMat = simpeg.sp.csr_matrix((vtkDataSet2.GetNumberOfCells(),vtkDataSet1.GetNumberOfCells()),dtype=float)
-    for nr,(dist, ix) in enumerate(zip( distances, ix )):
+    for nr,(dist, ix) in enumerate(zip( distances, ixs )):
         if nrofNear == 1:
             # Only using one point
             outMat[nr,ix] = 1
@@ -99,7 +173,7 @@ def getIWDSurjectMatrix(vtkDataSet1, vtkDataSet2, leafsize = 10, nrofNear = 9, e
             # If points are the "same"
             outMat[nr,ix[0]] = 1
         else:  # weight z s by 1/dist --
-            w = 1 / dist**p
+            w = 1. / dist**p
             w /= np.sum(w)
             outMat[nr,ix] = w
     # Return the matrix

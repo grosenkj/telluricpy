@@ -15,8 +15,8 @@ def cell2vtp(obj,ind):
     thresh.ThresholdBetween(ind-.1,ind+.1)
     thresh.SetInputArrayToProcess(1, 0, 0, 0, "id")
     thresh.Update()
-    vtpObj = extration.vtu2vtp(thresh.GetOutput())
+    vtpObj = extraction.vtu2vtp(thresh.GetOutput())
 
-    return polygons.normFilter(polygons.triangulatePolyData(vtpObj))
+    return polydata.normFilter(polydata.triangulatePolyData(vtpObj))
 
 

@@ -1,7 +1,7 @@
 import numpy as np, modelTools as mT, SimPEG as simpeg, vtk, sys, os, time
 import vtk.util.numpy_support as npsup
 # sys.path.append('/home/gudni/Dropbox/code/python/vtkTools/')
-from vtkTools.polygons import convertToImplicitPolyDataDistance
+from polydata import convertToImplicitPolyDataDistance
 
 # Clip and extrude the topo
 def clipDataSetWithPolygon(vtkDataSet,vtkPoly,returnImpDist=False,insideOut=True,extractBounds=False):

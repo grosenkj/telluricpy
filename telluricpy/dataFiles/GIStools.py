@@ -1,7 +1,7 @@
 # Script to convert GIS .shp and .dbt files to VTK vtp files.
 import vtk, numpy as np, vtk.util.numpy_support as npsup, sys
 import modelChecks as mCh
-import vtkTools
+from telluricpy import vtkTools
 
 def makePolyhedron(polygon,thickness=1,elevation=0,triangulate=False,returnGrid=False):
     """
@@ -78,12 +78,12 @@ def makeVolumePolygon(polygon,thickness=1,elevation=0.0,triangulate=False,cap=Tr
         if elevation.IsA('vtkPolyData'):
             eB = elevation.GetBounds()
             cutPoly = makePolygon(polygon,elevation=eB[-2]-10,triangulate=triangulate)
-            cutVol = vtkTools.polygons.normFilter(vtkTools.polygons.extrudePolygon(cutPoly,eB[-1]-eB[-2]+20,[0,0,1],False))
+            cutVol = vtkTools.polydata.normFilter(vtkTools.polydata.extrudePolygon(cutPoly,eB[-1]-eB[-2]+20,[0,0,1],False))
             # Cut the elevation
-            vtkPoly = vtkTools.extration.clipDataSetWithPolygon(vtkTools.polygons.normFilter(elevation),cutVol,insideOut=True,extractBounds=True)
+            vtkPoly = vtkTools.extraction.clipDataSetWithPolygon(vtkTools.polydata.normFilter(elevation),cutVol,insideOut=True,extractBounds=True)
 
     # Extrude the topo surface downwards by the given thicknes.
-    volPoly  = vtkTools.polygons.extrudePolygon(vtkPoly,thickness,[0,0,-1],False)
+    volPoly  = vtkTools.polydata.extrudePolygon(vtkPoly,thickness,[0,0,-1],False)
     return volPoly
 
 
@@ -117,20 +117,20 @@ def shape2polyhedron(shpFile,dbfHeader=None,thickness=1.0,elevation=0.0):
     shpPHAppFilt = vtk.vtkAppendFilter()
     shpPHAppFilt.MergePointsOn()
     for nr, poly in enumerate(shp):
-        mainPolygon = vtkTools.polygons.normFilter(makeVolumePolygon(np.array(poly.parts[0][:-1]),thickness,elevation,triangulate=True))
+        mainPolygon = vtkTools.polydata.normFilter(makeVolumePolygon(np.array(poly.parts[0][:-1]),thickness,elevation,triangulate=True))
         # Deal with holes
         if poly.holes[0] == []:
             mainPHGrid = mCh.makePolyhedronCell(mainPolygon,returnGrid=True)
         else:
             holesAppendFilt = vtk.vtkAppendPolyData()
             for hole in poly.holes:
-                holePoly = vtkTools.polygons.normFilter(makeVolumePolygon(np.array(hole[:-1]),holeThink,holeElev,triangulate=True))
+                holePoly = vtkTools.polydata.normFilter(makeVolumePolygon(np.array(hole[:-1]),holeThink,holeElev,triangulate=True))
                 holesAppendFilt.AddInputData(holePoly)
             # Make holes polygon
             holesAppendFilt.Update()
             holesPolygons = holesAppendFilt.GetOutput()
             # Cut the holes
-            mainCutHolesPolygon = vtkTools.polygons.join2Polydata(mainPolygon,holesPolygons,threshold1='upper',threshold2='lower')
+            mainCutHolesPolygon = vtkTools.polydata.join2Polydata(mainPolygon,holesPolygons,threshold1='upper',threshold2='lower')
             # Add the cut polyhedron
             mainPHGrid = mCh.makePolyhedronCell(mainCutHolesPolygon,returnGrid=True)
         shpPHAppFilt.AddInputData(mainPHGrid)
