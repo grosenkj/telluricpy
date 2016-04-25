@@ -13,7 +13,8 @@ def cell2vtp(obj,ind):
     thresh = vtk.vtkThreshold()
     thresh.SetInputData(obj)
     thresh.ThresholdBetween(ind-.1,ind+.1)
-    thresh.SetInputArrayToProcess(1, 0, 0, 0, "id")
+    # The numbers are: 1- idx, 2-port, 3-connection, 4-fieldAssociation, 5-name
+    thresh.SetInputArrayToProcess(0, 0, 0, 1, "id")
     thresh.Update()
     vtpObj = extraction.vtu2vtp(thresh.GetOutput())
 

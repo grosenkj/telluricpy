@@ -65,7 +65,7 @@ def calculateVolume(polyData):
     mp = vtk.vtkMassProperties()
     # Set the input
     mp.SetInputData(polyData)
-    return mp.GetVolume()
+    return float(mp.GetVolume())
 
 def decimatePolygon(polyObject,reduceFactor=0.5):
 	'''
