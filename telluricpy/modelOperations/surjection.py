@@ -57,10 +57,13 @@ def _calculateVolumeByBoxClip(vtkDataSet1,vtkDataSet2,iV):
     from telluricpy import vtkTools
 
     # Triangulate polygon and calc normals
-    baseC = vtkTools.dataset.cell2vtp(vtkDataSet2,iV)
-    baseVol = vtkTools.polydata.calculateVolume(baseC)
+    baseC = vtkTools.dataset.getCell2vtp(vtkDataSet2,iV)
     # Extrct the cell by the bounds first, significant speed up...
-    extCells = vtkTools.extraction.extractDataSetByBounds(vtkDataSet1,baseC)
+    if vtkDataSet1.IsA('vtkRectilinearGrid'):
+        # Use a faster implementation of the rectgrid extraction
+        extCells = _extractRectGridByBounds(vtkDataSet1,baseC)
+    else:
+        extCells = vtkTools.extraction.extractDataSetByBounds(vtkDataSet1,baseC)
     # Define the box clip and clip the first mesh with the cell
     cb = baseC.GetBounds()
     boxClip = vtk.vtkBoxClipDataSet()
@@ -73,10 +76,42 @@ def _calculateVolumeByBoxClip(vtkDataSet1,vtkDataSet2,iV):
     uniIDs = np.unique(idList)
     # Extract cells from the first mesh that intersect the base cell
     # Calculate the volumes of the clipped cells and insert to the matrix
-    volL = []
-    for nrCC,iR in enumerate(uniIDs):
-        volL.append(vtkTools.polydata.calculateVolume(vtkTools.dataset.cell2vtp(intCells,iR)) / float(baseVol))
-    return uniIDs,np.array(volL)
+    volList =[]
+    for i in range(intCells.GetNumberOfCells()):
+        c = intCells.GetCell(i)
+        cPts = c.GetPoints()
+        volList.append(c.ComputeVolume(cPts.GetPoint(0),cPts.GetPoint(1),cPts.GetPoint(2),cPts.GetPoint(3)))
+    volArr =  np.array(volList)
+    # Calculate the volumes
+    volCal = np.array([np.sum(volArr[idList == curId]) for curId in uniIDs])
+
+    return uniIDs, volCal/np.sum(volCal)
+
+def _extractRectGridByBounds(vtrObj,boundObj):
+    '''
+    Function that extracts cell from a rectilinear grid (vtr) using bounds.
+
+    Should be signifacantly faster the extractBounds method.
+
+    '''
+    import numpy as np, SimPEG as simpeg, vtk
+    import vtk.util.numpy_support as npsup
+
+    bO = boundObj.GetBounds()
+    xC = npsup.vtk_to_numpy(vtrObj.GetXCoordinates())
+    yC = npsup.vtk_to_numpy(vtrObj.GetYCoordinates())
+    zC = npsup.vtk_to_numpy(vtrObj.GetZCoordinates())
+    iL = np.where(xC <= bO[0])[0][-1]
+    iU = np.where(xC >= bO[1])[0][0]
+    jL = np.where(yC <= bO[2])[0][-1]
+    jU = np.where(yC >= bO[3])[0][0]
+    kL = np.where(zC <= bO[4])[0][-1]
+    kU = np.where(zC >= bO[5])[0][0]
+    extRect = vtk.vtkExtractRectilinearGrid()
+    extRect.SetInputData(vtrObj)
+    extRect.SetVOI((iL,iU,jL,jU,kL,kU))
+    extRect.Update()
+    return extRect
 
 def _calculateVolumeByBoolean(vtkDataSet1,vtkDataSet2,iV):
     """
@@ -92,7 +127,7 @@ def _calculateVolumeByBoolean(vtkDataSet1,vtkDataSet2,iV):
     from telluricpy import vtkTools
 
     # Triangulate polygon and calc normals
-    baseC = vtkTools.dataset.cell2vtp(vtkDataSet2,iV)
+    baseC = vtkTools.dataset.getCell2vtp(vtkDataSet2,iV)
     baseVol = vtkTools.polydata.calculateVolume(baseC)
     # print iV, baseVol
     # Extract cells from the first mesh that intersect the base cell
@@ -104,7 +139,7 @@ def _calculateVolumeByBoolean(vtkDataSet1,vtkDataSet2,iV):
     # Calculate the volumes of the clipped cells and insert to the matrix
     volL = []
     for nrCC,iR in enumerate(extInd):
-        tempCell = vtkTools.dataset.cell2vtp(extractCells,iR)
+        tempCell = vtkTools.dataset.thresholdCellId2vtp(extractCells,iR)
         # Find the intersection of the 2 cells
         boolFilt = vtk.vtkBooleanOperationPolyDataFilter()
         boolFilt.SetInputData(0,tempCell)
