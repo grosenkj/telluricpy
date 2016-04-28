@@ -101,12 +101,18 @@ def _extractRectGridByBounds(vtrObj,boundObj):
     xC = npsup.vtk_to_numpy(vtrObj.GetXCoordinates())
     yC = npsup.vtk_to_numpy(vtrObj.GetYCoordinates())
     zC = npsup.vtk_to_numpy(vtrObj.GetZCoordinates())
-    iL = np.where(xC <= bO[0])[0][-1]
-    iU = np.where(xC >= bO[1])[0][0]
-    jL = np.where(yC <= bO[2])[0][-1]
-    jU = np.where(yC >= bO[3])[0][0]
-    kL = np.where(zC <= bO[4])[0][-1]
-    kU = np.where(zC >= bO[5])[0][0]
+    iLT = np.where(xC <= bO[0])[0]
+    iL = 0 if iLT.shape[0] == 0 else iLT[-1]
+    iUT = np.where(xC >= bO[1])[0]
+    iU = len(xC) if iUT.shape[0] == 0 else iUT[0]
+    jLT = np.where(yC <= bO[2])[0]
+    jL = 0 if jLT.shape[0] == 0 else jLT[-1]
+    jUT = np.where(yC >= bO[3])[0]
+    jU = len(yC) if jUT.shape[0] == 0 else jUT[0]
+    kLT = np.where(zC <= bO[4])[0]
+    kL = 0 if kLT.shape[0] == 0 else kLT[-1]
+    kUT = np.where(zC >= bO[5])[0]
+    kU = len(zC) if kUT.shape[0] == 0 else kUT[0]
     extRect = vtk.vtkExtractRectilinearGrid()
     extRect.SetInputData(vtrObj)
     extRect.SetVOI((iL,iU,jL,jU,kL,kU))

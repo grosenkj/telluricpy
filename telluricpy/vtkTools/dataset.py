@@ -51,3 +51,37 @@ def getCell2vtp(obj,ind):
         vtpObj.SetPolys(polygons)
 
     return polydata.normFilter(polydata.triangulatePolyData(vtpObj))
+
+# Add a numpy array to a VTKobject
+def addNPDataArrays(vtkObj,arrDict,arrType='Cell'):
+    """ Function to add a nparray to vtkObject"""
+    for nameArr,npArr in arrDict.iteritems():
+        vtkArr = npsup.numpy_to_vtk(npArr,deep=1)
+        vtkArr.SetName(nameArr)
+        if arrType == 'Cell':
+            vtkObj.GetCellData().AddArray(vtkArr)
+        elif arrType == 'Point':
+            vtkObj.GetPointData().AddArray(vtkArr)
+        else:
+            raise Exception('Not a support arrType')
+
+def getDataArrayNames(vtkObj,arrType='Cell'):
+    """Function that returns a list of all the names of cell data arrays."""
+    l = []
+    if arrType == 'Cell':
+        nameList = [ vtkObj.GetCellData().GetArrayName(i) for i in range(vtkObj.GetCellData().GetNumberOfArrays())]
+    elif arrType == 'Point':
+        nameList = [ vtkObj.GetPointData().GetArrayName(i) for i in range(vtkObj.GetPointData().GetNumberOfArrays())]
+    else:
+        raise Exception('Not a support arrType')
+    return nameList
+
+def getDataArray(vtkObj,name,arrType='Cell'):
+    """Function that returns the cell data array. """
+    return npsup.vtk_to_numpy(vtkObj.GetCellData().GetArray(name))
+    if arrType == 'Cell':
+        return npsup.vtk_to_numpy(vtkObj.GetCellData().GetArray(name))
+    elif arrType == 'Point':
+        return npsup.vtk_to_numpy(vtkObj.GetPointData().GetArray(name))
+    else:
+        raise Exception('Not a support arrType')
