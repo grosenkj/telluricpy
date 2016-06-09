@@ -1,6 +1,5 @@
 # Script to convert GIS .shp and .dbt files to VTK vtp files.
 import vtk, numpy as np, vtk.util.numpy_support as npsup, sys
-import modelChecks as mCh
 from telluricpy import vtkTools
 
 def makePolyhedron(polygon,thickness=1,elevation=0,triangulate=False,returnGrid=False):
@@ -48,6 +47,7 @@ def _makePolyhedronCell(vtkPolyData,returnGrid=False):
         return UnstructPolyHed
     else:
         return vtkPolyhed
+
 def makePolygon(polygon,elevation=0,triangulate=False):
     """
     Function to make a 2D vtk polygon PolyData from points making up a polygon.
