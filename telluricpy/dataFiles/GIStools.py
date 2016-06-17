@@ -267,11 +267,10 @@ def shape2vtpFile(shpFile,dbfHeader):
 
 if __name__ == "__main__":
     # Main program
-    import modelTools as mT
 
     shpFile = '/home/Gudni/Dropbox/Work/ISOR/Hengill/GeologyData/Jardfraedikort_tAtafla.shp'
     dbfHead = ['AREA','KENNI','atafla_LET','atafla_SKY','atafla_TYP']
 
 
     vtpObj = shape2vtpFile(shpFile,dbfHead)
-    mT.writeVTPFile('Hengill_geologicMap.vtp',vtpObj)
+    vtkTools.io.writeVTPFile('Hengill_geologicMap.vtp',vtpObj)

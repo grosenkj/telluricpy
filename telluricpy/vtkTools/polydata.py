@@ -1,6 +1,6 @@
-import numpy as np, modelTools as mT, SimPEG as simpeg, vtk, sys, os, time
+import numpy as np, SimPEG as simpeg, vtk
 import vtk.util.numpy_support as npsup
-
+from telluricpy import vtkTools
 
 # Calculate normals for polygons
 def normFilter(vtkPoly):
@@ -177,9 +177,9 @@ def join2Polydata(vtkPolydata1,vtkPolydata2,threshold1='lower',threshold2='upper
 
 	# Temp: save the outputs
 	if saveIntersect:
-		mT.writeVTPFile('InterSect0.vtp',polyIntersectFilt.GetOutput(0))
-		mT.writeVTPFile('InterSect1.vtp',polyIntersectFilt.GetOutput(1))
-		mT.writeVTPFile('InterSect2.vtp',polyIntersectFilt.GetOutput(2))
+		vtkTools.io.writeVTPFile('InterSect0.vtp',polyIntersectFilt.GetOutput(0))
+		vtkTools.io.writeVTPFile('InterSect1.vtp',polyIntersectFilt.GetOutput(1))
+		vtkTools.io.writeVTPFile('InterSect2.vtp',polyIntersectFilt.GetOutput(2))
 	# To do: need to check if they intersect.
 	# Calculate the distance of the intersect
 	polyDist = vtk.vtkDistancePolyDataFilter()
@@ -187,8 +187,8 @@ def join2Polydata(vtkPolydata1,vtkPolydata2,threshold1='lower',threshold2='upper
 	polyDist.SetInputConnection(1,polyIntersectFilt.GetOutputPort(2))
 	if saveIntersect:
 		polyDist.Update()
-		mT.writeVTPFile('distPoly0.vtp',polyDist.GetOutput(0))
-		mT.writeVTPFile('distPoly1.vtp',polyDist.GetOutput(1))
+		vtkTools.io.writeVTPFile('distPoly0.vtp',polyDist.GetOutput(0))
+		vtkTools.io.writeVTPFile('distPoly1.vtp',polyDist.GetOutput(1))
 	poly0thr = vtk.vtkThreshold()
 	poly0thr.AllScalarsOn()
 	poly0thr.SetInputArrayToProcess(0,0,0,vtk.vtkDataObject.FIELD_ASSOCIATION_CELLS,'Distance')
