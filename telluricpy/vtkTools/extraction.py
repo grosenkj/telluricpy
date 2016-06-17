@@ -1,4 +1,4 @@
-import numpy as np, modelTools as mT, SimPEG as simpeg, vtk, sys, os, time
+import numpy as np, SimPEG as simpeg, vtk
 import vtk.util.numpy_support as npsup
 # sys.path.append('/home/gudni/Dropbox/code/python/vtkTools/')
 from polydata import convertToImplicitPolyDataDistance
