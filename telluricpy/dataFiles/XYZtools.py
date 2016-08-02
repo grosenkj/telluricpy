@@ -32,3 +32,23 @@ def makeCylinderPtsVTP(locXYZ,radius=50,height=50,res=10):
     # Update and return.
     appPoly.Update()
     return appPoly.GetOutput()
+
+def makeSurfaceVTP(locXYZ):
+    # Load the file
+    if type(locXYZ) == np.ndarray:
+        loc = locXYZ
+    elif type(locXYZ) == str:
+        loc = np.genfromtxt(locXYZ)
+
+    # Make the pts
+    vtkPts = vtk.vtkPoints()
+    vtkPts.SetData(npsup.numpy_to_vtk(loc,deep=1))
+    # Make the poly data
+    polyPtsVTP = vtk.vtkPolyData()
+    polyPtsVTP.SetPoints(vtkPts)
+    # Triangulate
+    del2Filt = vtk.vtkDelaunay2D()
+    del2Filt.SetInputData(polyPtsVTP)
+    del2Filt.Update()
+    # Return
+    return del2Filt.GetOutput()

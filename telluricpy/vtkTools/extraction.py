@@ -27,7 +27,7 @@ def clipDataSetWithPolygon(vtkDataSet,vtkPoly,returnImpDist=False,insideOut=True
     clipFilt.SetInputConnection(extBoundsFilt.GetOutputPort())
     clipFilt.SetClipFunction(impDist)
     clipFilt.SetOutputPointsPrecision(vtk.vtkAlgorithm.DOUBLE_PRECISION)
-    clipFilt.SetMergeTolerance(0.000001)
+    # clipFilt.SetMergeTolerance(0.000001)
     clipFilt.Update()
     if returnImpDist:
         return clipFilt.GetOutput(), impDist
