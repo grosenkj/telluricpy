@@ -33,6 +33,52 @@ def makeCylinderPtsVTP(locXYZ,radius=50,height=50,res=10):
     appPoly.Update()
     return appPoly.GetOutput()
 
+def makeSpherePtsVTP(locXYZ,radius=50,res=20):
+    # Load the file
+    if type(locXYZ) == np.ndarray:
+        loc = locXYZ
+    elif type(locXYZ) == str:
+        loc = np.genfromtxt(locXYZ)
+    # Make append poly filter
+    appPoly = vtk.vtkAppendPolyData()
+    # Loop through all the locations
+    for pt in loc[:,0:3]:
+    	# Make the spheres
+        sph = vtk.vtkSphereSource()
+        sph.SetCenter(pt)
+        sph.SetRadius(radius)
+        sph.SetPhiResolution(res)
+        sph.SetThetaResolution(res)
+        sph.Update()
+        # Append
+        appPoly.AddInputConnection(sph.GetOutputPort())
+    # Update and return.
+    appPoly.Update()
+    return appPoly.GetOutput()
+
+def makeCubePtsVTP(locXYZ,xdim=50,ydim=50,zdim=50):
+    # Load the file
+    if type(locXYZ) == np.ndarray:
+        loc = locXYZ
+    elif type(locXYZ) == str:
+        loc = np.genfromtxt(locXYZ)
+    # Make append poly filter
+    appPoly = vtk.vtkAppendPolyData()
+    # Loop through all the locations
+    for pt in loc[:,0:3]:
+    	# Make the cubes
+        cube = vtk.vtkCubeSource()
+        cube.SetCenter(pt)
+        cube.SetXLength(xdim)
+        cube.SetYLength(ydim)
+        cube.SetZLength(zdim)
+        cube.Update()
+        # Append
+        appPoly.AddInputConnection(cube.GetOutputPort())
+    # Update and return.
+    appPoly.Update()
+    return appPoly.GetOutput()
+
 def makeSurfaceVTP(locXYZ):
     # Load the file
     if type(locXYZ) == np.ndarray:
