@@ -1,4 +1,4 @@
-import numpy as np, modelTools as mT, SimPEG as simpeg, vtk, sys, os, time
+import numpy as np, SimPEG as simpeg, vtk
 import vtk.util.numpy_support as npsup
 # sys.path.append('/home/gudni/Dropbox/code/python/vtkTools/')
 from polydata import convertToImplicitPolyDataDistance
@@ -27,7 +27,7 @@ def clipDataSetWithPolygon(vtkDataSet,vtkPoly,returnImpDist=False,insideOut=True
     clipFilt.SetInputConnection(extBoundsFilt.GetOutputPort())
     clipFilt.SetClipFunction(impDist)
     clipFilt.SetOutputPointsPrecision(vtk.vtkAlgorithm.DOUBLE_PRECISION)
-    clipFilt.SetMergeTolerance(0.000001)
+    # clipFilt.SetMergeTolerance(0.000001)
     clipFilt.Update()
     if returnImpDist:
         return clipFilt.GetOutput(), impDist

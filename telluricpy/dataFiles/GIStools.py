@@ -1,6 +1,5 @@
 # Script to convert GIS .shp and .dbt files to VTK vtp files.
 import vtk, numpy as np, vtk.util.numpy_support as npsup, sys
-import modelChecks as mCh
 from telluricpy import vtkTools
 
 def makePolyhedron(polygon,thickness=1,elevation=0,triangulate=False,returnGrid=False):
@@ -17,9 +16,37 @@ def makePolyhedron(polygon,thickness=1,elevation=0,triangulate=False,returnGrid=
 
     # Make the polyhedron
     if returnGrid:
-        return mCh.makePolyhedronCell(volpolyPolyData,True)
+        return _makePolyhedronCell(volpolyPolyData,True)
     else:
-        return mCh.makePolyhedronCell(volpolyPolyData)
+        return _makePolyhedronCell(volpolyPolyData)
+
+def _makePolyhedronCell(vtkPolyData,returnGrid=False):
+    """ Function that makes polyhedron cell from polygon. """
+
+    # ToDo:
+    # Add check that the polygon is "Waterthight"
+    # Not have to write a file, rather declare the polyhedron directly.
+    # Extract the information needed from the poly data
+    ptsIds = vtk.vtkIdList()
+    numCellFaces = vtkPolyData.GetNumberOfCells()
+    ptsIds.InsertNextId(numCellFaces) # Number of cell faces
+    # Add the faces
+    for cF in range(numCellFaces):
+        numPtsInFace = vtkPolyData.GetCell(cF).GetNumberOfPoints()
+        ptsIds.InsertNextId(numPtsInFace)
+        for cPF in range(numPtsInFace):
+            ptsIds.InsertNextId(vtkPolyData.GetCell(cF).GetPointId(cPF))
+
+    # Make the grid
+    UnstructPolyHed = vtk.vtkUnstructuredGrid()
+    UnstructPolyHed.SetPoints(vtkPolyData.GetPoints())
+    UnstructPolyHed.InsertNextCell(vtk.VTK_POLYHEDRON,ptsIds)
+
+    vtkPolyhed = UnstructPolyHed.GetCell(0)
+    if returnGrid:
+        return UnstructPolyHed
+    else:
+        return vtkPolyhed
 
 def makePolygon(polygon,elevation=0,triangulate=False):
     """
@@ -120,7 +147,7 @@ def shape2polyhedron(shpFile,dbfHeader=None,thickness=1.0,elevation=0.0):
         mainPolygon = vtkTools.polydata.normFilter(makeVolumePolygon(np.array(poly.parts[0][:-1]),thickness,elevation,triangulate=True))
         # Deal with holes
         if poly.holes[0] == []:
-            mainPHGrid = mCh.makePolyhedronCell(mainPolygon,returnGrid=True)
+            mainPHGrid = _makePolyhedronCell(mainPolygon,returnGrid=True)
         else:
             holesAppendFilt = vtk.vtkAppendPolyData()
             for hole in poly.holes:
@@ -132,7 +159,7 @@ def shape2polyhedron(shpFile,dbfHeader=None,thickness=1.0,elevation=0.0):
             # Cut the holes
             mainCutHolesPolygon = vtkTools.polydata.join2Polydata(mainPolygon,holesPolygons,threshold1='upper',threshold2='lower')
             # Add the cut polyhedron
-            mainPHGrid = mCh.makePolyhedronCell(mainCutHolesPolygon,returnGrid=True)
+            mainPHGrid = _makePolyhedronCell(mainCutHolesPolygon,returnGrid=True)
         shpPHAppFilt.AddInputData(mainPHGrid)
     shpPHAppFilt.Update()
     # Extract the vtu object.
@@ -240,11 +267,10 @@ def shape2vtpFile(shpFile,dbfHeader):
 
 if __name__ == "__main__":
     # Main program
-    import modelTools as mT
 
     shpFile = '/home/Gudni/Dropbox/Work/ISOR/Hengill/GeologyData/Jardfraedikort_tAtafla.shp'
     dbfHead = ['AREA','KENNI','atafla_LET','atafla_SKY','atafla_TYP']
 
 
     vtpObj = shape2vtpFile(shpFile,dbfHead)
-    mT.writeVTPFile('Hengill_geologicMap.vtp',vtpObj)
+    vtkTools.io.writeVTPFile('Hengill_geologicMap.vtp',vtpObj)
